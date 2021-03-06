@@ -148,7 +148,7 @@ def ex_team_query1(conn):
     
     output({"Fraction":[value]})
     
-def ex_team_query2():
+def ex_team_query2(conn):
     cur = conn.cursor()
     cmd = """with asian(female_smokers, male_smokers, location) as 
 (select
@@ -195,11 +195,61 @@ where -- And here we have the comparison between the averages
     
     output({"Countries":table})
 
-def ex_other_query1():
-    print("5")
+def ex_other_query1(conn):
+    cur = conn.cursor()
+    cmd = """with most_recent as
+	-- get the most recent data
+	(select
+		location, max(date) as date
+	from
+		covid
+	group by
+		location)
+select
+	-- (location, median_age, survival_rate)
+	location, median_age, (1 - (total_deaths / total_cases)) as survival_rate
+from
+	-- get the most recent data
+	covid natural join most_recent
+where
+	-- get rid of tuples where survival_rate may be null
+	total_deaths is not null and
+	total_cases is not null
+order by
+	survival_rate;"""
+    cur.execute(cmd,)
+    value = cur.fetchall() 
+    print(value)
 
-def ex_other_query2():
-    print("6")
+def ex_other_query2(conn):
+    cur = conn.cursor()
+    cmd = """(select
+		-- countries with no people vaccinated as of the most recent date
+		location, gdp_per_capita, max(date) as date
+	from
+		covid
+	where
+		-- no vaccination
+		total_vaccinations is null or 
+		total_vaccinations = 0
+	group by
+		location, gdp_per_capita),
+	max_gdp as
+	(select
+		-- get the max gdp of these countries
+		max(gdp_per_capita)
+	from
+		no_vaccination)
+select
+	location, gdp_per_capita
+from
+	covid natural join no_vaccination, max_gdp
+where
+	-- get the target country
+	covid.gdp_per_capita = max_gdp.max;"""
+    cur.execute(cmd,)
+    value = cur.fetchall() 
+    print(value)
 
 def gracefully_exit():
     print("exit")
@@ -223,7 +273,7 @@ if __name__ == "__main__":
     # Keep checking the closed attribute on conn
 
     while True:
-        # login(conn)
+        login(conn)
         print_menu()
         option = str(input("Enter Menu option:"))
         
@@ -238,13 +288,13 @@ if __name__ == "__main__":
             ex_team_query1(conn)
 
         elif option == '4':
-            ex_team_query2()
+            ex_team_query2(conn)
         
         elif option == '5':
-            ex_other_query1
+            ex_other_query1(conn)
         
         elif option == '6':
-            ex_other_query1
+            ex_other_query1(conn)
         
         elif option in ['q', 'Q']:
             done = True
