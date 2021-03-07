@@ -7,23 +7,19 @@ from hashlib import sha256
 from tabulate import tabulate
 
 
-
-
-
 # TODO refactor this into a connection class
 class CovidDBConnection:
     pass
 
-def connect_covid():
 
+def connect_covid():
     # name of the database connecting to
     DBNAME = "jzhan18_covid"
     USER = input("Enter Username: ")
     HOST = "ada.hpc.stlawu.edu"
     PASSWORD = getpass.getpass("Enter Password: ")
     # get password out of user table using username
-    
-    
+
     # Security
     # On every line of code, "what can go wrong?"
     # Real software should never ever crash
@@ -31,16 +27,15 @@ def connect_covid():
 
     # PASSWORD = getpass.getpass("Please enter password:")
 
-    #try:
+    # try:
     #    pgpass_file = open(PASSWORD_FILE)
-    #except OSError:
+    # except OSError:
     #    print("Cannot open credential file")
     #    exit(1)
 
-
     # Watchout, password visible in debugger. This means password is visible in
     # Main memory. We can assume that our main memory is protected
-    #passwd = pgpass_file.readline()
+    # passwd = pgpass_file.readline()
     passwd = PASSWORD
     if len(passwd) == 0:
         print("Cannot open credential file")
@@ -48,10 +43,10 @@ def connect_covid():
 
     try:
         conn = psycopg2.connect(
-            dbname = DBNAME,
-            user = USER,
-            host = HOST,
-            password = passwd
+            dbname=DBNAME,
+            user=USER,
+            host=HOST,
+            password=passwd
         )
     except psycopg2.Error as e:
         print(e)
@@ -73,7 +68,6 @@ def login(conn):
         print("User not found")
         login(conn)
 
-        
     # hash the password from the user and see if it matches the one we have on record
 
     PASSWORD = sha256(bytes(PASSWORD + salt, 'utf-8'))
@@ -84,44 +78,51 @@ def login(conn):
         login(conn)
     else:
         print_menu()
-        
+
+
 def print_menu():
-    #FIXME
-    menu = [["1)", "Update DB"], 
-            ["2)", "Lots of Rows"], 
+    # FIXME
+    menu = [["1)", "Update DB"],
+            ["2)", "Lots of Rows"],
             ["3)", "The fraction of cases that are deaths in the past year"],
-            ["4)", 
-"""
-Asian countries where the ratio of female smokers to male smokers is less than 
-the average ratio of female smokers to male smokers in European countries in 2020 
-(exclude all countries whose extreme poverty rate is below the Asian average)
-""".replace("\n", "")],
+            ["4)",
+             """
+ Asian countries where the ratio of female smokers to male smokers is less than 
+ the average ratio of female smokers to male smokers in European countries in 2020 
+ (exclude all countries whose extreme poverty rate is below the Asian average)
+             """.replace("\n", "")],
             ["5)", "Query 3 (Other team)"],
             ["6)", "Query 4 (Other team)"],
             ["Q)", "Quit/Log Off"]
-           ]
+            ]
     print(tabulate(menu))
 
-def update_db(conn, updated_file):
 
+def update_db(conn, updated_file):
     cur = conn.cursor()
-    sql_file = open(updated_file) #open the update.sql file 
+    sql_file = open(updated_file)  # open the update.sql file
     conn.commit()
-    sql_file.read() #read the SQL to execute 
-    #cur.execute(open('create_covid.sql', 'r').read())
+    sql_file.read()  # read the SQL to execute
+    # cur.execute(open('create_covid.sql', 'r').read())
     cur.execute("select max(date) from covid where covid.location = 'Zimbabwe';")
     for row in cur:
         print(row)
 
-#finish these functions
+
+# finish these functions
 def lots_of_rows(conn):
-    cur = conn.cursor()
-    cur.execute("select date from covid where covid.location = 'Zimbabwe';")
-    
+    try:
+        cur = conn.cursor()
+        cmd = "select date from covid where covid.location = 'Zimbabwe';"
+        cur.execute(cmd, )
+    except psycopg2.Error as e:
+        print("Connection lost")
+        exit()
+
     # max rows
-    # (c, r)
     size = shutil.get_terminal_size()[1]
     scroll(cur, size, cur.rowcount)
+
 
 def scroll(cur, size, count):
     for i in range(size):
@@ -138,132 +139,176 @@ def scroll(cur, size, count):
     count = count - size
     if count > 0 and len(keypress) == 0:
         scroll(cur, size, count)
-            
-def ex_team_query1(conn):
-    cur = conn.cursor()
-    cmd = " select sum(new_deaths_smoothed) / sum(new_cases_smoothed) as fraction from covid where date like '%2020%';"
-    
-    cur.execute(cmd,)
-    value = cur.fetchone()[0] 
-    
-    output({"Fraction":[value]})
-    
-def ex_team_query2(conn):
-    cur = conn.cursor()
-    cmd = """with asian(female_smokers, male_smokers, location) as 
-(select
-	female_smokers, male_smokers, location
-from
-	covid
-where
-	continent = 'Asia' and
-	date like '%2020%' and -- we also only want 2020 data
-	extreme_poverty < (select -- note that we exclude all asian countries where the extreme_poverty 
-				avg(extreme_poverty) -- is lower than the average
-			from
-				covid
-			where
-				continent = 'Asia')),
--- same thing with Europe but we only need the average
-european(average_smokers) as 
-(select 
-	avg(female_smokers / male_smokers)
-from
-	covid
-where
-	continent = 'Europe' and
-	date like '%2020%' and
-	extreme_poverty < (select
-				avg(extreme_poverty)
-			from
-				covid
-			where
-				continent = 'Asia'))
 
-select
-	distinct asian.location
-from
-	asian,european
-where -- And here we have the comparison between the averages
-	(asian.female_smokers / asian.male_smokers) < european.average_smokers;"""
-    
-    cur.execute(cmd,)
+
+def ex_team_query1(conn):
+    try:
+        cur = conn.cursor()
+        cmd = " select sum(new_deaths_smoothed) / sum(new_cases_smoothed) as fraction from covid where date like '%2020%';"
+        cur.execute(cmd, )
+
+    except psycopg2.Error as e:
+        print("Connection lost")
+        exit()
+
+
+    value = cur.fetchone()[0]
+
+    output({"Fraction": [value]})
+
+
+def ex_team_query2(conn):
+    try:
+        cur = conn.cursor()
+        cmd = """with asian(female_smokers, male_smokers, location) as 
+        (select
+        	female_smokers, male_smokers, location
+        from
+        	covid
+        where
+        	continent = 'Asia' and
+        	date like '%2020%' and -- we also only want 2020 data
+        	extreme_poverty < (select -- note that we exclude all asian countries where the extreme_poverty 
+        				avg(extreme_poverty) -- is lower than the average
+        			from
+        				covid
+        			where
+        				continent = 'Asia')),
+        -- same thing with Europe but we only need the average
+        european(average_smokers) as 
+        (select 
+        	avg(female_smokers / male_smokers)
+        from
+        	covid
+        where
+        	continent = 'Europe' and
+        	date like '%2020%' and
+        	extreme_poverty < (select
+        				avg(extreme_poverty)
+        			from
+        				covid
+        			where
+        				continent = 'Asia'))
+        select
+        	distinct asian.location
+        from
+        	asian,european
+        where -- And here we have the comparison between the averages
+        	(asian.female_smokers / asian.male_smokers) < european.average_smokers;"""
+
+        cur.execute(cmd, )
+    except psycopg2.Error as e:
+        print("Connection lost")
+        exit()
+
     value = cur.fetchall()
     table = list()
     for v in value:
         table.append(v[0])
-    
-    output({"Countries":table})
+
+    output({"Countries": table})
+
 
 def ex_other_query1(conn):
-    cur = conn.cursor()
-    cmd = """with most_recent as
-	-- get the most recent data
-	(select
-		location, max(date) as date
-	from
-		covid
-	group by
-		location)
-select
-	-- (location, median_age, survival_rate)
-	location, median_age, (1 - (total_deaths / total_cases)) as survival_rate
-from
-	-- get the most recent data
-	covid natural join most_recent
-where
-	-- get rid of tuples where survival_rate may be null
-	total_deaths is not null and
-	total_cases is not null
-order by
-	survival_rate;"""
-    cur.execute(cmd,)
-    value = cur.fetchall() 
-    print(value)
+    try:
+        cur = conn.cursor()
+        cmd = """with most_recent as
+        -- get the most recent data
+        (select
+            location, max(date) as date
+        from
+            covid
+        group by
+            location)
+    select
+        -- (location, median_age, survival_rate)
+        location, median_age, (1 - (total_deaths / total_cases)) as survival_rate
+    from
+        -- get the most recent data
+        covid natural join most_recent
+    where
+        -- get rid of tuples where survival_rate may be null
+        total_deaths is not null and
+        total_cases is not null
+    order by
+        survival_rate;"""
+        cur.execute(cmd, )
+    except psycopg2.Error as e:
+        print("Connection lost")
+        exit()
+
+    value = cur.fetchall()
+    locations = list()
+    ages = list()
+    survival_rate = list()
+    for v in value:
+        locations.append(v[0])
+        ages.append(v[1])
+        survival_rate.append(v[2])
+
+    output({"Location": locations,
+            "Median Age": ages,
+            "Survival Rate": survival_rate})
+
 
 def ex_other_query2(conn):
-    cur = conn.cursor()
-    cmd = """(select
-		-- countries with no people vaccinated as of the most recent date
-		location, gdp_per_capita, max(date) as date
-	from
-		covid
-	where
-		-- no vaccination
-		total_vaccinations is null or 
-		total_vaccinations = 0
-	group by
-		location, gdp_per_capita),
-	max_gdp as
-	(select
-		-- get the max gdp of these countries
-		max(gdp_per_capita)
-	from
-		no_vaccination)
-select
-	location, gdp_per_capita
-from
-	covid natural join no_vaccination, max_gdp
-where
-	-- get the target country
-	covid.gdp_per_capita = max_gdp.max;"""
-    cur.execute(cmd,)
-    value = cur.fetchall() 
-    print(value)
+    try:
+        cur = conn.cursor()
+        cmd = """(select
+            -- countries with no people vaccinated as of the most recent date
+            location, gdp_per_capita, max(date) as date
+        from
+            covid
+        where
+            -- no vaccination
+            total_vaccinations is null or 
+            total_vaccinations = 0
+        group by
+            location, gdp_per_capita),
+        max_gdp as
+        (select
+            -- get the max gdp of these countries
+            max(gdp_per_capita)
+        from
+            no_vaccination)
+    select
+        location, gdp_per_capita
+    from
+        covid natural join no_vaccination, max_gdp
+    where
+        -- get the target country
+        covid.gdp_per_capita = max_gdp.max;"""
+        cur.execute(cmd, )
+    except psycopg2.Error as e:
+        print("Connection lost")
+        exit()
+
+    value = cur.fetchall()
+    locations = list()
+    gdp = list()
+
+    for v in value:
+        locations.append(v[0])
+        gdp.append(v[1])
+
+    output({"Location": locations,
+            "GDP per capita": gdp})
+
 
 def gracefully_exit():
     print("exit")
     exit()
-        
-        #conn.close()
-        #open home page to restart -> this means running the show_table function
-        # this function will restart the app 
-        
+
+    # conn.close()
+    # open home page to restart -> this means running the show_table function
+    # this function will restart the app
+
+
 # values: a dictionary where keys are headers and values are lists of values
 def output(values):
     print(tabulate(values, headers="keys", tablefmt="simple"))
 
-    
+
 # M a i n    P r o g r a m
 if __name__ == "__main__":
     conn = connect_covid()
@@ -271,12 +316,12 @@ if __name__ == "__main__":
     # Assumpption: We have a valid connection
     # Watchout, cannot assume connection stays valid, could lose connection
     # Keep checking the closed attribute on conn
+    login(conn)
 
     while True:
-        login(conn)
         print_menu()
         option = str(input("Enter Menu option:"))
-        
+
         if option == '1':
             update_db(conn, "update_covid.sql")
 
@@ -289,29 +334,24 @@ if __name__ == "__main__":
 
         elif option == '4':
             ex_team_query2(conn)
-        
+
         elif option == '5':
             ex_other_query1(conn)
-        
+
         elif option == '6':
             ex_other_query1(conn)
-        
+
         elif option in ['q', 'Q']:
             done = True
             gracefully_exit()
 
-        #except psycopg2.Error as e:
+        # except psycopg2.Error as e:
         #   print(e)
         #    exit(1)
 
-
-        
-
 """
-
 What options should we provide the user?
 1) Put yourself in the shoes of the customer
 2) analyze the domain (parts)
 3) interview potential users and customers
-
 """
