@@ -100,13 +100,59 @@ def print_menu():
 
 def update_db(conn, updated_file):
     cur = conn.cursor()
-    sql_file = open(updated_file)  # open the update.sql file
-    conn.commit()
-    sql_file.read()  # read the SQL to execute
-    # cur.execute(open('create_covid.sql', 'r').read())
-    cur.execute("select max(date) from covid where covid.location = 'Zimbabwe';")
-    for row in cur:
-        print(row)
+    os.system("curl https://github.com/owid/covid-19-data/blob/master/public/data/owid-covid-data.csv --output /owid-covid-data.csv")
+    
+    #os.system('cmd /k "Your Command Prompt Command"')
+    #curl http://some.url --output some.file
+    with open('owid-covid-data.csv', 'r') as read_obj:
+        owid = reader(read_obj)
+        print(str(owid))
+        list_of_rows = (list(owid))
+    cmd = "DROP table if exists owid_data;"
+    cur.execute(cmd, )
+    
+    # create table for owid data
+    cmd = "CREATE TABLE IF NOT EXISTS owid_data ( iso_code char(8), continent text, location text NOT NULL, date text NOT NULL, total_cases real, new_cases real, new_cases_smoothed real, total_deaths real, new_deaths real,new_deaths_smoothed real,total_cases_per_million real,new_cases_per_million real,new_cases_smoothed_per_million real,total_deaths_per_million real,new_deaths_per_million real,new_deaths_smoothed_per_million real,reproduction_rate real,icu_patients real,icu_patients_per_million real,hosp_patients real,hosp_patients_per_million real,weekly_icu_admissions real,weekly_icu_admissions_per_million real,weekly_hosp_admissions real,weekly_hosp_admissions_per_million real,total_tests real,new_tests real,total_tests_per_thousand real,new_tests_per_thousand real,new_tests_smoothed real,new_tests_smoothed_per_thousand real,positive_rate real,tests_per_case real,tests_units text,total_vaccinations real,people_vaccinated real,people_fully_vaccinated real,new_vaccinations real,new_vaccinations_smoothed real,total_vaccinations_per_hundred real, people_vaccinated_per_hundred real,people_fully_vaccinated_per_hundred real, new_vaccinations_smoothed_per_million real, stringency_index real, population real, population_density real, median_age real, aged_65_older real,aged_70_older real,gdp_per_capita real,extreme_poverty real,cardiovasc_death_rate real,diabetes_prevalence real,female_smokers real,male_smokers real,handwashing_facilities real,hospital_beds_per_thousand real,life_expectancy real,human_development_index real,primary key (location, date));"
+
+    cur.execute(cmd,)
+
+    #keep track of the type for each data column 
+    col_types = ["char(8)", "text", "text NOT NULL", "date NOT NULL", "real", "real", "real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real", "real","real","real", "real","real","real","real","real","real","text", "real","real","real","real","real", "real", "real","real", "real", "real", "real", "real", "real", "real","real","real","real","real","real", "real", "real","real","real","real","real"]
+
+    #loop through and copy the list of lists into the table 
+    # I am ding this because we cannot run any / psql commands like /copy in this python file 
+    split_pattn = re.compile("\,", re.VERBOSE)
+    for r in range(2, len(list_of_rows)):
+        
+        line = "("
+        #l = list()
+        #for v in split_pattn.split(str(list_of_rows[r])):
+         #   if v != "[" and v != "]" and type(v) not in [float, int]:
+          #      v = str(v)
+           # l.append(v)
+        row = list_of_rows[r]
+        for i in range(len(row)):
+            if row[i] == "":
+                line += "NULL,"
+            elif i in [0,1,2,3,33]:
+                line += "\'" + row[i] + "\',"
+            else:
+                line += row[i] + ","
+        #line = line[:-1]
+        line += ")"
+        print(line)
+        cmd = "insert into owid_data values {0};".format(line)
+        cur.execute(cmd, )
+        line = line[:-1]
+    cmd = "CREATE TABLE IF NOT EXISTS tmp_table ( iso_code char(8), continent text, location text NOT NULL, date text NOT NULL, total_cases real, new_cases real, new_cases_smoothed real, total_deaths real, new_deaths real,new_deaths_smoothed real,total_cases_per_million real,new_cases_per_million real,new_cases_smoothed_per_million real,total_deaths_per_million real,new_deaths_per_million real,new_deaths_smoothed_per_million real,reproduction_rate real,icu_patients real,icu_patients_per_million real,hosp_patients real,hosp_patients_per_million real,weekly_icu_admissions real,weekly_icu_admissions_per_million real,weekly_hosp_admissions real,weekly_hosp_admissions_per_million real,total_tests real,new_tests real,total_tests_per_thousand real,new_tests_per_thousand real,new_tests_smoothed real,new_tests_smoothed_per_thousand real,positive_rate real,tests_per_case real,tests_units text,total_vaccinations real,people_vaccinated real,people_fully_vaccinated real,new_vaccinations real,new_vaccinations_smoothed real,total_vaccinations_per_hundred real, people_vaccinated_per_hundred real,people_fully_vaccinated_per_hundred real, new_vaccinations_smoothed_per_million real, stringency_index real, population real, population_density real, median_age real, aged_65_older real,aged_70_older real,gdp_per_capita real,extreme_poverty real,cardiovasc_death_rate real,diabetes_prevalence real,female_smokers real,male_smokers real,handwashing_facilities real,hospital_beds_per_thousand real,life_expectancy real,human_development_index real,primary key (location, date));"
+
+    cur.execute(cmd, )
+
+    cmd = " select * from owid_data; "
+    cur.execute(cmd, )
+    owid_row = cur.fetchone()
+    print(owid_row)
+    
 
 
 # finish these functions
