@@ -1,10 +1,9 @@
 import psycopg2
 import getpass
 import os
-import shutil
-import random
 from hashlib import sha256
 from tabulate import tabulate
+from csv import reader
 
 
 # TODO refactor this into a connection class
@@ -56,28 +55,34 @@ def connect_covid():
 
 
 def login(conn):
+
     cur = conn.cursor()
     # take in username and password
     cmd = "select salt, password_hashed from users where username = %s;"
-    USER = input("Enter Username: ")
-    PASSWORD = getpass.getpass("Enter Password: ")
+    user = input("Enter Username: ")
+    password = getpass.getpass("Enter Password: ")
+
     try:
-        cur.execute(cmd, (USER,))
-        salt, password_hashed = cur.fetchone()
+        cur.execute(cmd, (user,))
+
     except psycopg2.Error as e:
-        print("User not found")
+        print("Connection lost")
         login(conn)
 
-    # hash the password from the user and see if it matches the one we have on record
+    value = cur.fetchone()
+    if value is not None:
+        salt, password_hashed = value
+        # hash the password from the user and see if it matches the one we have on record
+        password = sha256(bytes(password + salt, 'utf-8'))
+        byte_pass = password.digest()
 
-    PASSWORD = sha256(bytes(PASSWORD + salt, 'utf-8'))
-    byte_pass = PASSWORD.digest()
-    print(str(byte_pass), password_hashed)
-    if str(byte_pass) != password_hashed:
-        print("Password incorrect")
-        login(conn)
+        if str(byte_pass) != password_hashed:
+            print("Username or password incorrect")
+            login(conn)
+
     else:
-        print_menu()
+        print("Username or password incorrect")
+        login(conn)
 
 
 def print_menu():
@@ -91,8 +96,8 @@ def print_menu():
  the average ratio of female smokers to male smokers in European countries in 2020 
  (exclude all countries whose extreme poverty rate is below the Asian average)
              """.replace("\n", "")],
-            ["5)", "Query 3 (Other team)"],
-            ["6)", "Query 4 (Other team)"],
+            ["5)", "Survival rate"],
+            ["6)", "Median age of each country ordered by ascending survival rate"],
             ["Q)", "Quit/Log Off"]
             ]
     print(tabulate(menu))
@@ -120,16 +125,10 @@ def update_db(conn, updated_file):
     col_types = ["char(8)", "text", "text NOT NULL", "date NOT NULL", "real", "real", "real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real","real", "real","real","real", "real","real","real","real","real","real","text", "real","real","real","real","real", "real", "real","real", "real", "real", "real", "real", "real", "real","real","real","real","real","real", "real", "real","real","real","real","real"]
 
     #loop through and copy the list of lists into the table 
-    # I am ding this because we cannot run any / psql commands like /copy in this python file 
-    split_pattn = re.compile("\,", re.VERBOSE)
+    # I am doing this because we cannot run any / psql commands like /copy in this python file
     for r in range(2, len(list_of_rows)):
         
         line = "("
-        #l = list()
-        #for v in split_pattn.split(str(list_of_rows[r])):
-         #   if v != "[" and v != "]" and type(v) not in [float, int]:
-          #      v = str(v)
-           # l.append(v)
         row = list_of_rows[r]
         for i in range(len(row)):
             if row[i] == "":
@@ -154,7 +153,6 @@ def update_db(conn, updated_file):
     print(owid_row)
     
 
-
 # finish these functions
 def lots_of_rows(conn):
     try:
@@ -166,7 +164,7 @@ def lots_of_rows(conn):
         exit()
 
     # max rows
-    size = shutil.get_terminal_size()[1]
+    size = os.get_terminal_size()[1]
     scroll(cur, size, cur.rowcount)
 
 
@@ -196,7 +194,6 @@ def ex_team_query1(conn):
     except psycopg2.Error as e:
         print("Connection lost")
         exit()
-
 
     value = cur.fetchone()[0]
 
@@ -343,6 +340,7 @@ def ex_other_query2(conn):
 
 def gracefully_exit():
     print("exit")
+    conn.close()
     exit()
 
     # conn.close()
@@ -370,7 +368,6 @@ if __name__ == "__main__":
 
         if option == '1':
             update_db(conn, "update_covid.sql")
-
 
         elif option == '2':
             lots_of_rows(conn)
