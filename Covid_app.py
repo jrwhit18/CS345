@@ -25,8 +25,9 @@ class CovidDBConnection:
                 dbname=self.dbname,
                 user=self.user,
                 host=self.host,
-                password=self.password
+                password=self.password,
             )
+
         except psycopg2.Error as e:
             print(e)
             exit(1)
@@ -133,26 +134,18 @@ class CovidDBConnection:
                         line += row[i] + ","
                 line = line[:-1]
                 line += ")"
-                # Cote d'Ivoire is the only location in the database that has a ' in the name
-                # this causes a problem because we need to escape it in the sql query
-                if location == "Cote d'Ivoire":
-                    line = line[:23] + "'" + line[23:]
-                    cmd = "delete from covid " \
-                        "where date = '{0}' and location = 'Cote d''Ivoire';" \
-                        "insert into covid values {1};".format(date, line)
-                    cur.execute(cmd, )
-                    cmd = "select location from covid where date = '{0}' and location = 'Cote d''Ivoire';".format(date)
-                    cur.execute(cmd, )
-                else:
-                    cmd = "delete from covid " \
-                        "where date = '{0}' and location = '{1}';" \
-                        "insert into covid values {2};".format(date,location, line)
-                    cur.execute(cmd,)
-                    cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
-                    cur.execute(cmd,)
+
+                cmd = "delete from covid " \
+                    "where date = '{0}' and location = '{1}';" \
+                    "insert into covid values {2};".format(date,location, line)
+                cur.execute(cmd,)
+                cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+                cur.execute(cmd,)
+                cur.commit()
                 existance = cur.fetchall()
                 if existance == ():
                     cur.execute("insert into covid values {0}").format(line)
+                    cur.commit()
             os.remove("differences.csv")
             print("Updated")
         except psycopg2.Error as e:
