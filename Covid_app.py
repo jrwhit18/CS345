@@ -4,6 +4,7 @@ import os
 from hashlib import sha256
 from tabulate import tabulate
 from csv import reader
+import requests
 
 
 # TODO refactor this into a connection class
@@ -78,9 +79,9 @@ class CovidDBConnection:
                 ]
         print(tabulate(menu))
 
-    def update_db(conn):
+    def update_db(self):
         try:
-            cur = conn.cursor()
+            cur = self.conn.cursor()
             cmd = "select * from covid"
 
             # getting old csv
@@ -89,7 +90,7 @@ class CovidDBConnection:
                 cur.copy_expert(outputquery, f)
             print("Preparing to update Database")
             # getting new csv
-            download("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv")
+            self.download("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv")
             print("Downloaded new information")
             # comparing old and new
             with open('csv_old.csv', 'r') as t1, open('csv_new.csv', 'r') as t2:
@@ -140,7 +141,7 @@ class CovidDBConnection:
             print("Connection lost, incomplete update")
             exit()
 
-    def download(url: str):
+    def download(self, url: str):
         filename = "csv_new.csv"  # be careful with file names
         file_path = os.path.join(filename)
 
@@ -155,19 +156,19 @@ class CovidDBConnection:
                         os.fsync(f.fileno())
         else:  # HTTP status code 4XX/5XX
             print("Download failed: status code {}\n{}".format(r.status_code, r.text))
-        def lots_of_rows(self):
-            try:
-                cur = self.conn.cursor()
-                cmd = "select date from covid where covid.location = 'Zimbabwe';"
-                cur.execute(cmd, )
-            except psycopg2.Error as e:
-                print("Connection lost")
-                exit()
 
-            # max rows
-            size = os.get_terminal_size()[1]
-            self.scroll(cur, size, cur.rowcount)
+    def lots_of_rows(self):
+        try:
+            cur = self.conn.cursor()
+            cmd = "select date from covid where covid.location = 'Zimbabwe';"
+            cur.execute(cmd, )
+        except psycopg2.Error as e:
+            print("Connection lost")
+            exit()
 
+        # max rows
+        size = os.get_terminal_size()[1]
+        self.scroll(cur, size, cur.rowcount)
 
     def scroll(self, cur, size, count):
         for i in range(size):
