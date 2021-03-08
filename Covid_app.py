@@ -353,7 +353,7 @@ class CovidDBConnection:
 
 # M a i n    P r o g r a m
 if __name__ == "__main__":
-    DBNAME = "jzhan18_covid"
+    DBNAME = "jrwhit18_covid"
 
     conn = CovidDBConnection(DBNAME,
                              input("Enter username: "),
