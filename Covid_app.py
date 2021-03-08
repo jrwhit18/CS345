@@ -78,53 +78,36 @@ class CovidDBConnection:
                 ]
         print(tabulate(menu))
 
-    def update_db(self, updated_file):
-        cur = self.conn.cursor()
-        os.system("curl https://github.com/owid/covid-19-data/blob/master/public/data/owid-covid-data.csv "
-                  "--output /owid-covid-data.csv")
+    def update_db(conn):
+        cur = conn.cursor()
+        cmd = "select * from covid"
 
-        #os.system('cmd /k "Your Command Prompt Command"')
-        #curl http://some.url --output some.file
-        with open('owid-covid-data.csv', 'r') as read_obj:
+        # getting old csv
+        outputquery = 'copy ({0}) to stdout with csv header'.format(cmd)
+        with open("csv_old.csv", "x") as f:
+            cur.copy_expert(outputquery, f)
+        print("Preparing to update Database")
+        # getting new csv
+        download("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv")
+        print("Downloaded new information")
+        # comparing old and new
+        with open('csv_old.csv', 'r') as t1, open('csv_new.csv', 'r') as t2:
+            fileone = t1.readlines()
+            filetwo = t2.readlines()
+
+
+        with open('differences.csv', 'x') as outFile:
+            for line in filetwo:
+                if line not in fileone:
+                    outFile.write(line)
+
+        os.remove("csv_old.csv")
+        os.remove("csv_new.csv")
+
+        with open('differences.csv', 'r') as read_obj:
             owid = reader(read_obj)
-            print(str(owid))
             list_of_rows = (list(owid))
-        cmd = "DROP table if exists owid_data;"
-        cur.execute(cmd, )
 
-        # create table for owid data
-        cmd = "CREATE TABLE IF NOT EXISTS owid_data " \
-              "( iso_code char(8), continent text, location text NOT NULL, date text NOT NULL, " \
-              "total_cases real, new_cases real, new_cases_smoothed real, total_deaths real, n" \
-              "ew_deaths real,new_deaths_smoothed real,total_cases_per_million real,new_cases_per_million real," \
-              "new_cases_smoothed_per_million real,total_deaths_per_million real,new_deaths_per_million real," \
-              "new_deaths_smoothed_per_million real,reproduction_rate real,icu_patients real," \
-              "icu_patients_per_million real,hosp_patients real,hosp_patients_per_million real," \
-              "weekly_icu_admissions real,weekly_icu_admissions_per_million real,weekly_hosp_admissions real," \
-              "weekly_hosp_admissions_per_million real,total_tests real,new_tests real,total_tests_per_thousand real," \
-              "new_tests_per_thousand real,new_tests_smoothed real,new_tests_smoothed_per_thousand real,positive_rate real," \
-              "tests_per_case real,tests_units text,total_vaccinations real,people_vaccinated real," \
-              "people_fully_vaccinated real,new_vaccinations real,new_vaccinations_smoothed real," \
-              "total_vaccinations_per_hundred real, people_vaccinated_per_hundred real," \
-              "people_fully_vaccinated_per_hundred real, new_vaccinations_smoothed_per_million real, " \
-              "stringency_index real, population real, population_density real, median_age real, " \
-              "aged_65_older real,aged_70_older real,gdp_per_capita real,extreme_poverty real,cardiovasc_death_rate real," \
-              "diabetes_prevalence real,female_smokers real,male_smokers real,handwashing_facilities real," \
-              "hospital_beds_per_thousand real,life_expectancy real,human_development_index real," \
-              "primary key (location, date));"
-
-        cur.execute(cmd,)
-
-        #keep track of the type for each data column
-        col_types = ["char(8)", "text", "text NOT NULL", "date NOT NULL", "real", "real", "real",
-                     "real","real","real","real","real","real","real","real","real","real","real",
-                     "real","real","real","real","real","real", "real","real","real", "real","real",
-                     "real","real","real","real","text", "real","real","real","real","real", "real",
-                     "real","real", "real", "real", "real", "real", "real", "real","real","real","real",
-                     "real","real", "real", "real","real","real","real","real"]
-
-        #loop through and copy the list of lists into the table
-        # I am doing this because we cannot run any / psql commands like /copy in this python file
         for r in range(2, len(list_of_rows)):
 
             line = "("
@@ -132,38 +115,55 @@ class CovidDBConnection:
             for i in range(len(row)):
                 if row[i] == "":
                     line += "NULL,"
-                elif i in [0,1,2,3,33]:
+                elif i in [0, 1, 2, 3, 33]:
                     line += "\'" + row[i] + "\',"
+                    if i == 3:
+                        date = row[i]
+                    if i == 2:
+                        location = row[i]
                 else:
                     line += row[i] + ","
-            #line = line[:-1]
-            line += ")"
-            print(line)
-            cmd = "insert into owid_data values {0};".format(line)
-            cur.execute(cmd, )
             line = line[:-1]
-        cmd = "CREATE TABLE IF NOT EXISTS tmp_table ( iso_code char(8), continent text, location text NOT NULL, date text NOT NULL, total_cases real, new_cases real, new_cases_smoothed real, total_deaths real, new_deaths real,new_deaths_smoothed real,total_cases_per_million real,new_cases_per_million real,new_cases_smoothed_per_million real,total_deaths_per_million real,new_deaths_per_million real,new_deaths_smoothed_per_million real,reproduction_rate real,icu_patients real,icu_patients_per_million real,hosp_patients real,hosp_patients_per_million real,weekly_icu_admissions real,weekly_icu_admissions_per_million real,weekly_hosp_admissions real,weekly_hosp_admissions_per_million real,total_tests real,new_tests real,total_tests_per_thousand real,new_tests_per_thousand real,new_tests_smoothed real,new_tests_smoothed_per_thousand real,positive_rate real,tests_per_case real,tests_units text,total_vaccinations real,people_vaccinated real,people_fully_vaccinated real,new_vaccinations real,new_vaccinations_smoothed real,total_vaccinations_per_hundred real, people_vaccinated_per_hundred real,people_fully_vaccinated_per_hundred real, new_vaccinations_smoothed_per_million real, stringency_index real, population real, population_density real, median_age real, aged_65_older real,aged_70_older real,gdp_per_capita real,extreme_poverty real,cardiovasc_death_rate real,diabetes_prevalence real,female_smokers real,male_smokers real,handwashing_facilities real,hospital_beds_per_thousand real,life_expectancy real,human_development_index real,primary key (location, date));"
+            line += ")"
+            cmd = "delete from covid " \
+                  "where date = '{0}' and location = '{1}';" \
+                  "insert into covid values {2};".format(date,location, line)
+            cur.execute(cmd,)
+            cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+            cur.execute(cmd,)
+            existance = cur.fetchall()
+            if existance == ():
+                cur.execute("insert into covid values {0}").format(line)
+        os.remove("differences.csv")
 
-        cur.execute(cmd, )
 
-        cmd = " select * from owid_data; "
-        cur.execute(cmd, )
-        owid_row = cur.fetchone()
-        print(owid_row)
+    def download(url: str):
+        filename = "csv_new.csv"  # be careful with file names
+        file_path = os.path.join(filename)
 
-    # finish these functions
-    def lots_of_rows(self):
-        try:
-            cur = self.conn.cursor()
-            cmd = "select date from covid where covid.location = 'Zimbabwe';"
-            cur.execute(cmd, )
-        except psycopg2.Error as e:
-            print("Connection lost")
-            exit()
+        r = requests.get(url, stream=True)
+        if r.ok:
+            print("saving to", os.path.abspath(file_path))
+            with open(file_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024 * 8):
+                    if chunk:
+                        f.write(chunk)
+                        f.flush()
+                        os.fsync(f.fileno())
+        else:  # HTTP status code 4XX/5XX
+            print("Download failed: status code {}\n{}".format(r.status_code, r.text))
+        def lots_of_rows(self):
+            try:
+                cur = self.conn.cursor()
+                cmd = "select date from covid where covid.location = 'Zimbabwe';"
+                cur.execute(cmd, )
+            except psycopg2.Error as e:
+                print("Connection lost")
+                exit()
 
-        # max rows
-        size = os.get_terminal_size()[1]
-        self.scroll(cur, size, cur.rowcount)
+            # max rows
+            size = os.get_terminal_size()[1]
+            self.scroll(cur, size, cur.rowcount)
 
 
     def scroll(self, cur, size, count):
