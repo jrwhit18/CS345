@@ -5,7 +5,8 @@ from hashlib import sha256
 from tabulate import tabulate
 from csv import reader
 import requests
-
+# James, Jiusheng, Charlie
+# Exam 1
 
 # conn class
 class CovidDBConnection:
