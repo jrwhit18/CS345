@@ -407,7 +407,7 @@ if __name__ == "__main__":
             conn.ex_other_query1()
 
         elif option == '6':
-            conn.ex_other_query1()
+            conn.ex_other_query2()
 
         elif option in ['q', 'Q']:
             done = True
