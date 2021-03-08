@@ -97,7 +97,6 @@ class CovidDBConnection:
                 fileone = t1.readlines()
                 filetwo = t2.readlines()
 
-
             with open('differences.csv', 'x') as outFile:
                 for line in filetwo:
                     if line not in fileone:
@@ -111,32 +110,34 @@ class CovidDBConnection:
                 list_of_rows = (list(owid))
 
             for r in range(2, len(list_of_rows)):
-
                 line = "("
                 row = list_of_rows[r]
                 for i in range(len(row)):
                     if row[i] == "":
                         line += "NULL,"
                     elif i in [0, 1, 2, 3, 33]:
-                        line += "\'" + row[i] + "\',"
+                        line += "\'" + row[i].replace('\'', '\'\'') + "\',"
                         if i == 3:
                             date = row[i]
                         if i == 2:
-                            location = row[i]
+                            location = row[i].replace('\'', '\'\'')
                     else:
                         line += row[i] + ","
                 line = line[:-1]
                 line += ")"
                 cmd = "delete from covid " \
-                      "where date = \"{0}\" and location = \"{1}\";" \
-                      "insert into covid values {2};".format(date,location, line)
-                cur.execute(cmd,)
-                cmd = "select location from covid where date = \"{0}\" and location = \"{1}\";".format(date,location)
-                cur.execute(cmd,)
-                existance = cur.fetchall()
-                if existance == ():
-                    cur.execute("insert into covid values {0}").format(line)
+                      "where date = \'{0}\' and location = \'{1}\';" \
+                      "insert into covid values {2};".format(date, location, line)
+                cur.execute(cmd, )
+
+                cmd = "select location from covid where date = \'{0}\' and location = \'{1}\';".format(date, location)
+                cur.execute(cmd, )
+                existance = cur.fetchone()
+                if existance is None:
+                    cmd = "insert into covid values {0}".format(line)
+                    cur.execute(cmd, )
             os.remove("differences.csv")
+            print("Updated")
         except psycopg2.Error as e:
             print("Connection lost, incomplete update")
             exit()
@@ -190,7 +191,8 @@ class CovidDBConnection:
     def ex_team_query1(self):
         try:
             cur = self.conn.cursor()
-            cmd = " select sum(new_deaths_smoothed) / sum(new_cases_smoothed) as fraction from covid where date like '%2020%';"
+            cmd = " select sum(new_deaths_smoothed) / sum(new_cases_smoothed) as fraction " \
+                  "from covid where date like '%2020%';"
             cur.execute(cmd, )
 
         except psycopg2.Error as e:
@@ -357,7 +359,7 @@ class CovidDBConnection:
 
 # M a i n    P r o g r a m
 if __name__ == "__main__":
-    DBNAME = "jrwhit18_covid"
+    DBNAME = "jzhan18_covid"
 
     conn = CovidDBConnection(DBNAME,
                              input("Enter username: "),
@@ -373,7 +375,7 @@ if __name__ == "__main__":
         option = str(input("Enter Menu option:"))
 
         if option == '1':
-            conn.update_db("update_covid.sql")
+            conn.update_db()
 
         elif option == '2':
             conn.lots_of_rows()
