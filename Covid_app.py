@@ -7,7 +7,6 @@ from csv import reader
 import requests
 # James, Jiusheng, Charlie
 # Exam 1
-
 # conn class
 class CovidDBConnection:
     def __init__(self, dbname, user, password):
@@ -224,7 +223,7 @@ class CovidDBConnection:
 
         self.output({"Fraction": [value]})
 
-    # Execute our team's first query
+    # Execute our team's second query
     def ex_team_query2(self):
         try:
             cur = self.conn.cursor()
@@ -276,7 +275,7 @@ class CovidDBConnection:
 
         self.output({"Countries": table})
 
-    # Execute our team's first query
+    # Execute another team's first query
     def ex_other_query1(self):
         try:
             cur = self.conn.cursor()
@@ -318,49 +317,39 @@ class CovidDBConnection:
                 "Median Age": ages,
                 "Survival Rate": survival_rate})
 
-    # Execute our team's first query
+    # Execute another team's second query
     def ex_other_query2(self):
-        try:
-            cur = self.conn.cursor()
-            cmd = """(select
-                -- countries with no people vaccinated as of the most recent date
-                location, gdp_per_capita, max(date) as date
-            from
-                covid
-            where
-                -- no vaccination
-                total_vaccinations is null or 
-                total_vaccinations = 0
-            group by
-                location, gdp_per_capita),
-            max_gdp as
-            (select
-                -- get the max gdp of these countries
-                max(gdp_per_capita)
-            from
-                no_vaccination)
-        select
-            location, gdp_per_capita
-        from
-            covid natural join no_vaccination, max_gdp
-        where
-            -- get the target country
-            covid.gdp_per_capita = max_gdp.max;"""
-            cur.execute(cmd, )
-        except psycopg2.Error as e:
-            print("Connection lost")
-            exit()
+        cur = self.conn.cursor()
+        cmd = """with first_day as -- get the first day a country started vaccinating
+        (select 
+            min(date) -- the earliest date
+          from 
+            covid
+          where 
+            total_vaccinations > 0) -- when the total vaccinations is not 0
+        
+        -- get the total cases, total deaths, and average stringency for each country 
+        select 
+            location, sum(new_cases) as case_sum, sum(new_deaths) as death_sum, avg(stringency_index) as avg_stringency_index
+        from 
+            covid
+        where 
+            date >= (select date from first_day) --only take the sums and avg where the date is after (and including) the first day
+        group by 
+            location;"""
+        cur.execute(cmd, )
 
         value = cur.fetchall()
-        locations = list()
-        gdp = list()
 
+        location = list()
+        cases = list()
+        deaths = list()
         for v in value:
-            locations.append(v[0])
-            gdp.append(v[1])
+            location.append(v[0])
+            cases.append(v[1])
+            deaths.append(v[2])
 
-        self.output({"Location": locations,
-                "GDP per capita": gdp})
+        self.output({"Location": location,"Cases": cases, "Deaths": deaths})
 
     # Closes the connection, logging the user out.
     def gracefully_exit(self):
