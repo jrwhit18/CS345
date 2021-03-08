@@ -128,10 +128,10 @@ class CovidDBConnection:
                 line = line[:-1]
                 line += ")"
                 cmd = "delete from covid " \
-                      "where date = '{0}' and location = '{1}';" \
+                      "where date = \"{0}\" and location = \"{1}\";" \
                       "insert into covid values {2};".format(date,location, line)
                 cur.execute(cmd,)
-                cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+                cmd = "select location from covid where date = \"{0}\" and location = \"{1}\";".format(date,location)
                 cur.execute(cmd,)
                 existance = cur.fetchall()
                 if existance == ():
