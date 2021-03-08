@@ -7,21 +7,19 @@ from csv import reader
 import requests
 
 
-# TODO refactor this into a connection class
+# conn class
 class CovidDBConnection:
     def __init__(self, dbname, user, password):
         # name of the database connecting to
         self.dbname = dbname
+        # username
         self.user = user
         self.host = "ada.hpc.stlawu.edu"
         self.password = password
         self.conn = self.connect_covid()
 
+    # make a connection to the database
     def connect_covid(self):
-        if len(self.password) == 0:
-            print("Cannot open credential file")
-            exit(1)
-
         try:
             conn = psycopg2.connect(
                 dbname=self.dbname,
@@ -35,7 +33,6 @@ class CovidDBConnection:
         return conn
 
     def login(self):
-
         cur = self.conn.cursor()
         # take in username and password
         cmd = "select salt, password_hashed from users where username = %s;"
@@ -49,23 +46,29 @@ class CovidDBConnection:
             print("Connection lost")
             self.login()
 
+        # get (salt, password)
         value = cur.fetchone()
+
+        # make sure we have a valid input
         if value is not None:
             salt, password_hashed = value
             # hash the password from the user and see if it matches the one we have on record
             password = sha256(bytes(password + salt, 'utf-8'))
             byte_pass = password.digest()
 
+            # password incorrect
             if str(byte_pass) != password_hashed:
                 print("Username or password incorrect")
+                # try again
                 self.login()
 
         else:
             print("Username or password incorrect")
+            # try again
             self.login()
 
+    # display a menu
     def print_menu(self):
-        # FIXME
         menu = [["1)", "Update DB"],
                 ["2)", "Lots of Rows"],
                 ["3)", "The fraction of cases that are deaths in the past year"],
@@ -142,10 +145,10 @@ class CovidDBConnection:
             print("Connection lost, incomplete update")
             exit()
 
+    # method to download csv file from a website
     def download(self, url: str):
-        filename = "csv_new.csv"  # be careful with file names
+        filename = "csv_new.csv"
         file_path = os.path.join(filename)
-
         r = requests.get(url, stream=True)
         if r.ok:
             print("saving to", os.path.abspath(file_path))
@@ -155,9 +158,10 @@ class CovidDBConnection:
                         f.write(chunk)
                         f.flush()
                         os.fsync(f.fileno())
-        else:  # HTTP status code 4XX/5XX
+        else:
             print("Download failed: status code {}\n{}".format(r.status_code, r.text))
 
+    # execute a query that will output lots of rows
     def lots_of_rows(self):
         try:
             cur = self.conn.cursor()
@@ -168,9 +172,10 @@ class CovidDBConnection:
             exit()
 
         # max rows
-        size = os.get_terminal_size()[1]
+        size = os.get_terminal_size()[1] - 1
         self.scroll(cur, size, cur.rowcount)
 
+    # a method to restrict the number of rows
     def scroll(self, cur, size, count):
         for i in range(size):
             if i >= count:
@@ -182,11 +187,10 @@ class CovidDBConnection:
                     if count > size:
                         keypress = input("Press enter to continue")
                     break
-
+        # check if rows left are less than the terminal size
         count = count - size
         if count > 0 and len(keypress) == 0:
             self.scroll(cur, size, count)
-
 
     def ex_team_query1(self):
         try:
@@ -202,7 +206,6 @@ class CovidDBConnection:
         value = cur.fetchone()[0]
 
         self.output({"Fraction": [value]})
-
 
     def ex_team_query2(self):
         try:
@@ -255,7 +258,6 @@ class CovidDBConnection:
 
         self.output({"Countries": table})
 
-
     def ex_other_query1(self):
         try:
             cur = self.conn.cursor()
@@ -296,7 +298,6 @@ class CovidDBConnection:
         self.output({"Location": locations,
                 "Median Age": ages,
                 "Survival Rate": survival_rate})
-
 
     def ex_other_query2(self):
         try:
@@ -341,15 +342,10 @@ class CovidDBConnection:
         self.output({"Location": locations,
                 "GDP per capita": gdp})
 
-
     def gracefully_exit(self):
         print("exit")
         self.conn.close()
         exit()
-
-        # conn.close()
-        # open home page to restart -> this means running the show_table function
-        # this function will restart the app
 
 
     # values: a dictionary where keys are headers and values are lists of values
@@ -395,14 +391,3 @@ if __name__ == "__main__":
         elif option in ['q', 'Q']:
             done = True
             conn.gracefully_exit()
-
-        # except psycopg2.Error as e:
-        #   print(e)
-        #    exit(1)
-
-"""
-What options should we provide the user?
-1) Put yourself in the shoes of the customer
-2) analyze the domain (parts)
-3) interview potential users and customers
-"""
