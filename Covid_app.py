@@ -141,11 +141,9 @@ class CovidDBConnection:
                 cur.execute(cmd,)
                 cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
                 cur.execute(cmd,)
-                cur.commit()
                 existance = cur.fetchall()
                 if existance == ():
                     cur.execute("insert into covid values {0}").format(line)
-                    cur.commit()
             os.remove("differences.csv")
             print("Updated")
         except psycopg2.Error as e:
