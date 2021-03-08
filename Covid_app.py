@@ -27,6 +27,7 @@ class CovidDBConnection:
                 host=self.host,
                 password=self.password,
             )
+            conn.set_session(autocommit = True)
 
         except psycopg2.Error as e:
             print(e)
