@@ -5,8 +5,6 @@ from hashlib import sha256
 from tabulate import tabulate
 from csv import reader
 import requests
-# James, Jiusheng, Charles
-# exam1
 
 
 # conn class
@@ -34,7 +32,7 @@ class CovidDBConnection:
             exit(1)
         return conn
 
-    # log in
+    # Uses the "users" table in the covid database to compare the hashed passwords to the ones that users enter
     def login(self):
         cur = self.conn.cursor()
         # take in username and password
@@ -70,7 +68,7 @@ class CovidDBConnection:
             # try again
             self.login()
 
-    # display a menu
+    # displays a menu
     def print_menu(self):
         menu = [["1)", "Update DB"],
                 ["2)", "Lots of Rows"],
@@ -79,13 +77,14 @@ class CovidDBConnection:
                  "Asian countries where the ratio of female smokers to male smokers is less than "
                  "the average ratio of female smokers to male smokers in European countries in 2020 "
                  "(exclude all countries whose extreme poverty rate is below the Asian average)"],
-                ["5)", "Median age of each country ordered by ascending survival rate"],
-                ["6)", "Which country has the highest GDP per capita with no people vaccinated as of the most recent date?"],
+                ["5)", "Survival rate"],
+                ["6)", "Median age of each country ordered by ascending survival rate"],
                 ["Q)", "Quit/Log Off"]
                 ]
         print(tabulate(menu))
-
-    # update the database
+    # This function updates the database,
+    # it uses curl to download the csv file automatically, then compares the
+    # downloaded file to the version pulled from the database.
     def update_db(self):
         try:
             cur = self.conn.cursor()
@@ -104,12 +103,12 @@ class CovidDBConnection:
                 fileone = t1.readlines()
                 filetwo = t2.readlines()
 
+            # looping through to find the differences
             with open('differences.csv', 'x') as outFile:
                 for line in filetwo:
                     if line not in fileone:
                         outFile.write(line)
 
-            # delete temporary files
             os.remove("csv_old.csv")
             os.remove("csv_new.csv")
 
@@ -117,8 +116,8 @@ class CovidDBConnection:
                 owid = reader(read_obj)
                 list_of_rows = (list(owid))
 
-            # build a cmd string
-            for r in range(2, len(list_of_rows)):
+            #loop through the differences to update them
+            for r in range(1, len(list_of_rows)):
                 line = "("
                 row = list_of_rows[r]
                 for i in range(len(row)):
@@ -134,24 +133,31 @@ class CovidDBConnection:
                         line += row[i] + ","
                 line = line[:-1]
                 line += ")"
-                cmd = "delete from covid " \
-                      "where date = \'{0}\' and location = \'{1}\';" \
-                      "insert into covid values {2};".format(date, location, line)
-                cur.execute(cmd, )
-
-                cmd = "select location from covid where date = \'{0}\' and location = \'{1}\';".format(date, location)
-                cur.execute(cmd, )
-                existance = cur.fetchone()
-                if existance is None:
-                    cmd = "insert into covid values {0}".format(line)
+                # Cote d'Ivoire is the only location in the database that has a ' in the name
+                # this causes a problem because we need to escape it in the sql query
+                if location == "Cote d'Ivoire":
+                    line = line[:23] + "'" + line[23:]
+                    cmd = "delete from covid " \
+                        "where date = '{0}' and location = 'Cote d''Ivoire';" \
+                        "insert into covid values {1};".format(date, line)
                     cur.execute(cmd, )
-
-            # finish updating
+                    cmd = "select location from covid where date = '{0}' and location = 'Cote d''Ivoire';".format(date)
+                    cur.execute(cmd, )
+                else:
+                    cmd = "delete from covid " \
+                        "where date = '{0}' and location = '{1}';" \
+                        "insert into covid values {2};".format(date,location, line)
+                    cur.execute(cmd,)
+                    cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+                    cur.execute(cmd,)
+                existance = cur.fetchall()
+                if existance == ():
+                    cur.execute("insert into covid values {0}").format(line)
             os.remove("differences.csv")
             print("Updated")
-
         except psycopg2.Error as e:
             print("Connection lost, incomplete update")
+            os.remove("differences.csv")
             exit()
 
     # method to download csv file from a website
@@ -174,7 +180,6 @@ class CovidDBConnection:
     def lots_of_rows(self):
         try:
             cur = self.conn.cursor()
-            # get dates of Zimbabwe
             cmd = "select date from covid where covid.location = 'Zimbabwe';"
             cur.execute(cmd, )
         except psycopg2.Error as e:
@@ -182,7 +187,7 @@ class CovidDBConnection:
             exit()
 
         # max rows
-        size = os.get_terminal_size()[1] - 2
+        size = os.get_terminal_size()[1] - 1
         self.scroll(cur, size, cur.rowcount)
 
     # a method to restrict the number of rows
@@ -202,7 +207,7 @@ class CovidDBConnection:
         if count > 0 and len(keypress) == 0:
             self.scroll(cur, size, count)
 
-    #  Find the fraction of cases that are deaths in the past year using the total deaths smoothed.
+    # Execute our team's first query
     def ex_team_query1(self):
         try:
             cur = self.conn.cursor()
@@ -218,9 +223,7 @@ class CovidDBConnection:
 
         self.output({"Fraction": [value]})
 
-    # Find all Asian countries where the ratio of female smokers to male smokers is less than
-    # the average ratio of female smokers to male smokers in European countries in 2020
-    # (exclude all countries whose extreme poverty rate is below the Asian average).
+    # Execute our team's first query
     def ex_team_query2(self):
         try:
             cur = self.conn.cursor()
@@ -272,7 +275,7 @@ class CovidDBConnection:
 
         self.output({"Countries": table})
 
-    # Find the median age of each country ordered by ascending survival rate.
+    # Execute our team's first query
     def ex_other_query1(self):
         try:
             cur = self.conn.cursor()
@@ -314,35 +317,34 @@ class CovidDBConnection:
                 "Median Age": ages,
                 "Survival Rate": survival_rate})
 
-    # Which country has the highest GDP per capita with no people vaccinated as of the most recent date?
+    # Execute our team's first query
     def ex_other_query2(self):
         try:
             cur = self.conn.cursor()
-            cmd = """with no_vaccination as
-                        (select
-                            -- countries with no people vaccinated as of the most recent date
-                            location, gdp_per_capita, max(date) as date
-                        from
-                            covid
-                        where
-                            -- no vaccination
-                            total_vaccinations is null or 
-                            total_vaccinations = 0
-                        group by
-                            location, gdp_per_capita),
-                        max_gdp as
-                        (select
-                            -- get the max gdp of these countries
-                            max(gdp_per_capita)
-                        from
-                            no_vaccination)
-                    select
-                        location, gdp_per_capita
-                    from
-                        covid natural join no_vaccination, max_gdp
-                    where
-                        -- get the target country
-                        covid.gdp_per_capita = max_gdp.max;"""
+            cmd = """(select
+                -- countries with no people vaccinated as of the most recent date
+                location, gdp_per_capita, max(date) as date
+            from
+                covid
+            where
+                -- no vaccination
+                total_vaccinations is null or 
+                total_vaccinations = 0
+            group by
+                location, gdp_per_capita),
+            max_gdp as
+            (select
+                -- get the max gdp of these countries
+                max(gdp_per_capita)
+            from
+                no_vaccination)
+        select
+            location, gdp_per_capita
+        from
+            covid natural join no_vaccination, max_gdp
+        where
+            -- get the target country
+            covid.gdp_per_capita = max_gdp.max;"""
             cur.execute(cmd, )
         except psycopg2.Error as e:
             print("Connection lost")
@@ -359,10 +361,12 @@ class CovidDBConnection:
         self.output({"Location": locations,
                 "GDP per capita": gdp})
 
+    # Closes the connection, logging the user out.
     def gracefully_exit(self):
         print("exit")
         self.conn.close()
         exit()
+
 
     # values: a dictionary where keys are headers and values are lists of values
     def output(self, values):
@@ -371,7 +375,7 @@ class CovidDBConnection:
 
 # M a i n    P r o g r a m
 if __name__ == "__main__":
-    DBNAME = "jzhan18_covid"
+    DBNAME = "jrwhit18_covid"
 
     conn = CovidDBConnection(DBNAME,
                              input("Enter username: "),
@@ -402,7 +406,7 @@ if __name__ == "__main__":
             conn.ex_other_query1()
 
         elif option == '6':
-            conn.ex_other_query2()
+            conn.ex_other_query1()
 
         elif option in ['q', 'Q']:
             done = True
