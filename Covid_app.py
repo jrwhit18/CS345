@@ -84,7 +84,7 @@ class CovidDBConnection:
                 ]
         print(tabulate(menu))
     # This function updates the database,
-    # it uses curl to download the csv file automatically, then compares the
+    # it uses the 'requests' library to download the csv file automatically, then compares the
     # downloaded file to the version pulled from the database.
     def update_db(self):
         try:
@@ -112,7 +112,8 @@ class CovidDBConnection:
 
             os.remove("csv_old.csv")
             os.remove("csv_new.csv")
-
+            
+            # Open the Differences csv and make a tuple of list of rows  
             with open('differences.csv', 'r') as read_obj:
                 owid = reader(read_obj)
                 list_of_rows = (list(owid))
@@ -121,6 +122,8 @@ class CovidDBConnection:
             for r in range(1, len(list_of_rows)):
                 line = "("
                 row = list_of_rows[r]
+                
+                #make sure string formatting is correct in each row
                 for i in range(len(row)):
                     if row[i] == "":
                         line += "NULL,"
@@ -134,7 +137,8 @@ class CovidDBConnection:
                         line += row[i] + ","
                 line = line[:-1]
                 line += ")"
-
+                
+                #delete and reinsert those rows formatted above 
                 cmd = "delete from covid " \
                     "where date = '{0}' and location = '{1}';" \
                     "insert into covid values {2};".format(date,location, line)
@@ -143,6 +147,7 @@ class CovidDBConnection:
                 cur.execute(cmd,)
                 existance = cur.fetchall()
                 if existance == ():
+                    #insert all differences into covid 
                     cur.execute("insert into covid values {0}").format(line)
             os.remove("differences.csv")
             print("Updated")
