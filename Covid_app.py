@@ -32,6 +32,7 @@ class CovidDBConnection:
             exit(1)
         return conn
 
+    # log in
     def login(self):
         cur = self.conn.cursor()
         # take in username and password
@@ -165,6 +166,7 @@ class CovidDBConnection:
     def lots_of_rows(self):
         try:
             cur = self.conn.cursor()
+            # get dates of Zimbabwe
             cmd = "select date from covid where covid.location = 'Zimbabwe';"
             cur.execute(cmd, )
         except psycopg2.Error as e:
@@ -172,7 +174,7 @@ class CovidDBConnection:
             exit()
 
         # max rows
-        size = os.get_terminal_size()[1] - 1
+        size = os.get_terminal_size()[1] - 2
         self.scroll(cur, size, cur.rowcount)
 
     # a method to restrict the number of rows
@@ -346,7 +348,6 @@ class CovidDBConnection:
         print("exit")
         self.conn.close()
         exit()
-
 
     # values: a dictionary where keys are headers and values are lists of values
     def output(self, values):
