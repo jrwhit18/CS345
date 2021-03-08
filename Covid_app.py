@@ -79,63 +79,66 @@ class CovidDBConnection:
         print(tabulate(menu))
 
     def update_db(conn):
-        cur = conn.cursor()
-        cmd = "select * from covid"
+        try:
+            cur = conn.cursor()
+            cmd = "select * from covid"
 
-        # getting old csv
-        outputquery = 'copy ({0}) to stdout with csv header'.format(cmd)
-        with open("csv_old.csv", "x") as f:
-            cur.copy_expert(outputquery, f)
-        print("Preparing to update Database")
-        # getting new csv
-        download("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv")
-        print("Downloaded new information")
-        # comparing old and new
-        with open('csv_old.csv', 'r') as t1, open('csv_new.csv', 'r') as t2:
-            fileone = t1.readlines()
-            filetwo = t2.readlines()
+            # getting old csv
+            outputquery = 'copy ({0}) to stdout with csv header'.format(cmd)
+            with open("csv_old.csv", "x") as f:
+                cur.copy_expert(outputquery, f)
+            print("Preparing to update Database")
+            # getting new csv
+            download("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv")
+            print("Downloaded new information")
+            # comparing old and new
+            with open('csv_old.csv', 'r') as t1, open('csv_new.csv', 'r') as t2:
+                fileone = t1.readlines()
+                filetwo = t2.readlines()
 
 
-        with open('differences.csv', 'x') as outFile:
-            for line in filetwo:
-                if line not in fileone:
-                    outFile.write(line)
+            with open('differences.csv', 'x') as outFile:
+                for line in filetwo:
+                    if line not in fileone:
+                        outFile.write(line)
 
-        os.remove("csv_old.csv")
-        os.remove("csv_new.csv")
+            os.remove("csv_old.csv")
+            os.remove("csv_new.csv")
 
-        with open('differences.csv', 'r') as read_obj:
-            owid = reader(read_obj)
-            list_of_rows = (list(owid))
+            with open('differences.csv', 'r') as read_obj:
+                owid = reader(read_obj)
+                list_of_rows = (list(owid))
 
-        for r in range(2, len(list_of_rows)):
+            for r in range(2, len(list_of_rows)):
 
-            line = "("
-            row = list_of_rows[r]
-            for i in range(len(row)):
-                if row[i] == "":
-                    line += "NULL,"
-                elif i in [0, 1, 2, 3, 33]:
-                    line += "\'" + row[i] + "\',"
-                    if i == 3:
-                        date = row[i]
-                    if i == 2:
-                        location = row[i]
-                else:
-                    line += row[i] + ","
-            line = line[:-1]
-            line += ")"
-            cmd = "delete from covid " \
-                  "where date = '{0}' and location = '{1}';" \
-                  "insert into covid values {2};".format(date,location, line)
-            cur.execute(cmd,)
-            cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
-            cur.execute(cmd,)
-            existance = cur.fetchall()
-            if existance == ():
-                cur.execute("insert into covid values {0}").format(line)
-        os.remove("differences.csv")
-
+                line = "("
+                row = list_of_rows[r]
+                for i in range(len(row)):
+                    if row[i] == "":
+                        line += "NULL,"
+                    elif i in [0, 1, 2, 3, 33]:
+                        line += "\'" + row[i] + "\',"
+                        if i == 3:
+                            date = row[i]
+                        if i == 2:
+                            location = row[i]
+                    else:
+                        line += row[i] + ","
+                line = line[:-1]
+                line += ")"
+                cmd = "delete from covid " \
+                      "where date = '{0}' and location = '{1}';" \
+                      "insert into covid values {2};".format(date,location, line)
+                cur.execute(cmd,)
+                cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+                cur.execute(cmd,)
+                existance = cur.fetchall()
+                if existance == ():
+                    cur.execute("insert into covid values {0}").format(line)
+            os.remove("differences.csv")
+        except psycopg2.Error as e:
+            print("Connection lost, incomplete update")
+            exit()
 
     def download(url: str):
         filename = "csv_new.csv"  # be careful with file names
