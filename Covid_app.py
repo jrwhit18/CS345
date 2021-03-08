@@ -129,18 +129,25 @@ class CovidDBConnection:
                         line += row[i] + ","
                 line = line[:-1]
                 line += ")"
-                cmd = "delete from covid " \
-                      "where date = \'{0}\' and location = \'{1}\';" \
-                      "insert into covid values {2};".format(date, location, line)
-                cur.execute(cmd, )
-
-                cmd = "select location from covid where date = \'{0}\' and location = \'{1}\';".format(date, location)
-                cur.execute(cmd, )
-                existance = cur.fetchone()
-                if existance is None:
-                    cmd = "insert into covid values {0}".format(line)
+                if location == "Cote d'Ivoire":
+                    line = line[:23] + "'" + line[23:]
+                    cmd = "delete from covid " \
+                        "where date = '{0}' and location = 'Cote d''Ivoire';" \
+                        "insert into covid values {1};".format(date, line)
                     cur.execute(cmd, )
-            os.remove("differences.csv")
+                    cmd = "select location from covid where date = '{0}' and location = 'Cote d''Ivoire';".format(date)
+                    cur.execute(cmd, )
+                else:
+                    cmd = "delete from covid " \
+                        "where date = '{0}' and location = '{1}';" \
+                        "insert into covid values {2};".format(date,location, line)
+                        cur.execute(cmd,)
+                        cmd = "select location from covid where date = '{0}' and location = '{1}';".format(date,location)
+                        cur.execute(cmd,)
+        existance = cur.fetchall()
+        if existance == ():
+            cur.execute("insert into covid values {0}").format(line)
+    os.remove("differences.csv")
             print("Updated")
         except psycopg2.Error as e:
             print("Connection lost, incomplete update")
