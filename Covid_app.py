@@ -129,7 +129,7 @@ class CovidDBConnection:
                 line = line[:-1]
                 line += ")"
                 if location == "Cote d'Ivoire":
-                    line = line[:line.index("'", 1)] + "'" + line[line.index("'",1):]
+                    line = line[:23] + "'" + line[23:]
                     cmd = "delete from covid " \
                         "where date = '{0}' and location = 'Cote d''Ivoire';" \
                         "insert into covid values {1};".format(date, line)
